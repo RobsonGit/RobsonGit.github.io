@@ -1,0 +1,185 @@
+<font size=4><b>
+Project summary - "Practical Machine Learning" course
+</font size></b>
+
+<font size=3>
+1. After reading the <b>pml-training.csv</b> dataset into R and checking its basic features (number of observations and variables, categories in dependent variable) I decided to split the pml-training dataset into 2 subsets out of which one with 70% of observations will be used for training the model and the other (remaining observations) for testing the model. R commands that I used are provided below (I'm putting some results after '#' so that the summary is easier to read).
+
+<font size=2>
+```{r, results='hide', warning=FALSE, message=FALSE}
+pml = read.csv("pml-training.csv")
+dim(pml)
+# 19622   160
+table(pml$classe)
+#    A    B    C    D    E 
+# 5580 3797 3422 3216 3607
+library(caret)
+library(rpart)
+set.seed(700)
+inTrain = createDataPartition(pml$classe, p = 0.7)[[1]]
+train = pml[inTrain,]
+test = pml[-inTrain,]
+dim(train)
+# 13737   160
+dim(test)
+# 5885  160
+summary(pml)
+```
+
+<font size=3>
+2. As the dependent variable classe includes 5 categories (A-E) I decided to use decision tree method as primary to build the model and choose the variables which are most important for prediction. The random forrest method was pointed during the course as the one that has certain advantages over other methods and often is the best method that wins in competitions so this will be the other method to check and compare vs. decision tree results.
+
+<font size=3>
+3. # of observations in <b>train</b> dataset is quite big so no need to worry about small sample.
+<b>summary(pml)</b> revealed that many variables have a lot of missing observations. So the other assumption would be to build the model only based on those variables which include reliable data and not many missings.
+So next step in the process is to classify the variables to "missing" and "non-missing" based on % of missing observations.
+
+<font size=3>
+4. Based on <b>summary(pml)</b> it is visible that 100 variables should be treated as "missing". Also it can be easily checked that the information stored in these 100 variables is applicable only for cases where variable new_window="yes". So those 100 variables will not help much in explaining the behaviour of dependent variable, especially that in <b>pml-testing.csv</b> dataset we have only observations with new_window="no".
+cvtd_timestamp is a date/time variable so it would be good to convert it to other variables related directly to date or time and check if they help in anything. After creating new variables I’m splitting the dataset once again to train and test.
+
+<font size=2>
+```{r, results='hide'}
+DateConvert = as.Date(strptime(pml$cvtd_timestamp, "%d/%m/%Y %H:%M"))
+pml$Weekday = weekdays(DateConvert)
+pml$Month = months(DateConvert)
+set.seed(700)
+inTrain = createDataPartition(pml$classe, p = 0.7)[[1]]
+train = pml[inTrain,]
+test = pml[-inTrain,]
+```
+
+<font size=3>
+Using newly created 2 variables Weekday and Month and all 58 "non-missing" variables I build the first model, model1, using decision tree algorithm.
+
+<font size=2>
+```{r, results='hide'}
+model1 = rpart(classe ~ user_name + Weekday + Month + raw_timestamp_part_1 + raw_timestamp_part_2 + new_window + num_window + roll_belt + pitch_belt + yaw_belt + total_accel_belt +  gyros_belt_x + gyros_belt_y + gyros_belt_z + accel_belt_x + accel_belt_y + accel_belt_z + magnet_belt_x + magnet_belt_y + magnet_belt_z + roll_arm + pitch_arm + yaw_arm + total_accel_arm + gyros_arm_x + gyros_arm_y + gyros_arm_z + accel_arm_x + accel_arm_y + accel_arm_z + magnet_arm_x +  magnet_arm_y + magnet_arm_z + roll_dumbbell + pitch_dumbbell + yaw_dumbbell + total_accel_dumbbell + gyros_dumbbell_x + gyros_dumbbell_y +  gyros_dumbbell_z + accel_dumbbell_x + accel_dumbbell_y + accel_dumbbell_z + magnet_dumbbell_x + magnet_dumbbell_y + magnet_dumbbell_z + roll_forearm +  pitch_forearm + yaw_forearm + total_accel_forearm + gyros_forearm_x + gyros_forearm_y + gyros_forearm_z + accel_forearm_x + accel_forearm_y + accel_forearm_z + magnet_forearm_x + magnet_forearm_y + magnet_forearm_z, data=train, method="class")
+```
+
+<font size=3>
+model1 has the accuracy at about 0.82 for both train and test datasets so this would be the expected out-of sample error for this model.
+
+<font size=3>
+5. Given the fact that testing set pml-testing.csv (file with 20 observations to predict) does not include observations with new_window="yes" I check what happens if the observations with new_window=”yes” are removed from training dataset.
+
+<font size=2>
+```{r, results='hide'}
+pml_subset = subset(pml, new_window=="no")
+set.seed(700)
+inTrain2 = createDataPartition(pml_subset$classe, p = 0.7)[[1]]
+train2 = pml_subset[inTrain2,]
+test2 = pml_subset [-inTrain2,]
+dim(train2)
+# 13453   162
+dim(test2)
+# 5763  162
+
+model2 = rpart(classe ~ user_name + Weekday + Month + raw_timestamp_part_1 + raw_timestamp_part_2 + new_window + num_window + roll_belt + pitch_belt + yaw_belt + total_accel_belt +  gyros_belt_x + gyros_belt_y + gyros_belt_z + accel_belt_x + accel_belt_y + accel_belt_z + magnet_belt_x + magnet_belt_y + magnet_belt_z + roll_arm + pitch_arm + yaw_arm + total_accel_arm + gyros_arm_x + gyros_arm_y + gyros_arm_z + accel_arm_x + accel_arm_y + accel_arm_z + magnet_arm_x +  magnet_arm_y + magnet_arm_z + roll_dumbbell + pitch_dumbbell + yaw_dumbbell + total_accel_dumbbell + gyros_dumbbell_x + gyros_dumbbell_y +  gyros_dumbbell_z + accel_dumbbell_x + accel_dumbbell_y + accel_dumbbell_z + magnet_dumbbell_x + magnet_dumbbell_y + magnet_dumbbell_z + roll_forearm +  pitch_forearm + yaw_forearm + total_accel_forearm + gyros_forearm_x + gyros_forearm_y + gyros_forearm_z + accel_forearm_x + accel_forearm_y + accel_forearm_z + magnet_forearm_x + magnet_forearm_y + magnet_forearm_z, data=train2, method="class")
+```
+
+<font size=3>
+From accuracy results it looks like excluding observations with new_window="yes" does not change much and both models do not differ significantly (accuracy in both models is high and similar at around 0.82-0.83). This is confirmed also by <b>model1$variable.importance</b> and <b>model2$variable.importance</b> or "Variable importance" part from summary(model1) and summary(model2) which show that generally variables chosen by both decision tree models are the same and they differ only slightly on importance.
+
+<font size=2>
+```{r, results='hide'}
+#Variable importance in model1:
+#raw_timestamp_part_1            roll_belt           num_window    magnet_dumbbell_z 
+#                  13                    9                    7                    5 
+#           user_name           pitch_belt        pitch_forearm     accel_dumbbell_y 
+#                   5                    4                    4                    4 
+#        accel_belt_z total_accel_dumbbell     total_accel_belt    magnet_dumbbell_y 
+#                   4                    4                    3                    3 
+#        roll_forearm        roll_dumbbell         accel_belt_y      accel_forearm_x 
+#                   3                    3                    2                    2 
+#       magnet_belt_x             yaw_belt     accel_dumbbell_x        magnet_belt_z 
+#                   2                    2                    2                    2 
+#    accel_dumbbell_z       pitch_dumbbell         accel_belt_x         yaw_dumbbell 
+#                   2                    2                    1                    1 
+#             Weekday     magnet_forearm_z          yaw_forearm        magnet_belt_y 
+#                   1                    1                    1                    1 
+#    magnet_forearm_x              yaw_arm                Month             roll_arm 
+#                   1                    1                    1                    1 
+#     accel_forearm_z    magnet_dumbbell_x          accel_arm_x 
+#                   1                    1                    1
+#
+#Variable importance in model2:
+#raw_timestamp_part_1            roll_belt           num_window            user_name 
+#                  14                    9                    8                    5 
+#   magnet_dumbbell_z           pitch_belt     accel_dumbbell_y        pitch_forearm 
+#                   4                    4                    4                    4 
+#        accel_belt_z total_accel_dumbbell    magnet_dumbbell_y     total_accel_belt 
+#                   4                    4                    3                    3 
+#       roll_dumbbell         roll_forearm      accel_forearm_x        magnet_belt_x 
+#                   3                    3                    2                    2 
+#            yaw_belt         accel_belt_y        magnet_belt_z       pitch_dumbbell 
+#                   2                    2                    2                    2 
+#        yaw_dumbbell     accel_dumbbell_x              Weekday     magnet_forearm_z 
+#                   2                    1                    1                    1 
+#    accel_dumbbell_z              yaw_arm     magnet_forearm_y        magnet_belt_y 
+#                   1                    1                    1                    1 
+#         yaw_forearm     magnet_forearm_x         accel_belt_x                Month 
+#                   1                    1                    1                    1 
+#            roll_arm      accel_forearm_z    magnet_dumbbell_x          accel_arm_x 
+#                   1                    1                    1                    1
+```
+
+<font size=3>
+6. So now let’s try random forest. I use randomForest library directly as 'train' function from caret library somehow is much slower on my computer.
+
+<font size=2>
+```{r, results='hide', warning=FALSE, message=FALSE}
+library(randomForest)
+```
+
+<font size=3>
+I take only most important variables pointed by decision tree models so now I deal with only first 10 variables pointed in "Variable importance" part above.
+
+<font size=2>
+```{r, results='hide'}
+set.seed(700)
+model3 = randomForest(as.factor(classe) ~ raw_timestamp_part_1 + roll_belt + num_window + user_name + magnet_dumbbell_z + pitch_belt + pitch_forearm + accel_dumbbell_y + accel_belt_z + total_accel_dumbbell, data=train2)
+```
+
+<font size=3>
+The accuracy results (around 0.99-1 on both train and test dataset) show that the Random Forest model works much better than decision tree and we can expect that this model has really very low out-of-sample error!
+
+<font size=3>
+7. Given so good accuracy of Random Forest model I check if it still works fine if I limit # of variables (simpler model has a chance to work better on new sample).
+
+<font size=2>
+```{r}
+model3$importance
+```
+
+<font size=3>
+Here I’ve made another several attempts to check if the model will still work well:
+
+a/ with 3 most important variables,
+
+b/ with 3 most important + user_name added (as the behaviour may depend on person)
+
+c/ with 4 most important variables.
+
+Also done a check with decision tree (simplifying the tree model to 3 most important variables helps quite significantly here, leading to improvement of accuracy from about 0.82 to 0.90) and different split to train/test datasets based on different set.seed (Random Forest model still gives accuracy close to 1). Below results presented for model from point a.
+
+<font size=2>
+```{r, warning=FALSE}
+set.seed(700)
+model4 = randomForest(as.factor(classe) ~ raw_timestamp_part_1 + roll_belt + num_window, data=train2)
+predRF = predict(model4, newdata=train2, type="class")
+confusionMatrix(train2$classe, predRF)
+predRF = predict(model4, newdata=test2, type="class")
+confusionMatrix(test2$classe, predRF)
+```
+<font size=3>
+Based on these results we can say that the expected out-of sample error should be close to 0.
+
+<font size=3>
+8. So the last step is just to apply model4 on <b>pml-testing.csv</b> dataset.
+<font size=2>
+```{r}
+pml_test = read.csv("pml-testing.csv")
+predRF = predict(model4, newdata=pml_test, type="class")
+predRF
+```
